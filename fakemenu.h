@@ -20,8 +20,8 @@
 extern "C" {
 #endif
 
-BOOL APIENTRY FakeMenu_Init(VOID);
-VOID APIENTRY FakeMenu_Exit(VOID);
+BOOL APIENTRY FakeMenu_InitInstance(VOID);
+VOID APIENTRY FakeMenu_ExitInstance(VOID);
 
 HFAKEMENU APIENTRY FakeMenu_Create(VOID);
 HFAKEMENU APIENTRY FakeMenu_FromHMENU(HMENU hMenu);

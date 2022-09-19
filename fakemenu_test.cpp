@@ -119,7 +119,7 @@ WinMain(HINSTANCE hInstance,
 {
     s_hInst = hInstance;
 
-    FakeMenu_Init();
+    FakeMenu_InitInstance();
 
     WNDCLASSEXW wc = { sizeof(wc) };
     wc.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
@@ -146,6 +146,6 @@ WinMain(HINSTANCE hInstance,
         DispatchMessage(&msg);
     }
 
-    FakeMenu_Exit();
+    FakeMenu_ExitInstance();
     return 0;
 }

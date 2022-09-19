@@ -1695,12 +1695,12 @@ inline HFAKEMENU FakeMenuToHandle(FakeMenu* pFakeMenu)
 extern "C"
 {
 
-BOOL APIENTRY FakeMenu_Init(VOID)
+BOOL APIENTRY FakeMenu_InitInstance(VOID)
 {
     return FakeMenu::DoRegisterClass();
 }
 
-VOID APIENTRY FakeMenu_Exit(VOID)
+VOID APIENTRY FakeMenu_ExitInstance(VOID)
 {
 }
 
