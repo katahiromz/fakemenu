@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <windowsx.h>
+#include <commctrl.h>
 #include "fakemenu.h"
 
 #define MYWM_NOTIFY_ICON (WM_USER + 100)
@@ -118,6 +119,7 @@ WinMain(HINSTANCE hInstance,
         INT nCmdShow)
 {
     s_hInst = hInstance;
+    InitCommonControls();
 
     FakeMenu_InitInstance();
 
