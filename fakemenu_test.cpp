@@ -42,9 +42,11 @@ VOID OnNotifyMenu(HWND hwnd, POINT pt, INT nMenuID)
     DestroyMenu(hMenu);
 
     LOGFONT lf;
-    GetObject(GetStockFont(DEFAULT_GUI_FONT), sizeof(lf), &lf);
+    ZeroMemory(&lf, sizeof(lf));
     lf.lfHeight = -24;
+    lstrcpynW(lf.lfFaceName, L"Tahoma", _countof(lf.lfFaceName));
     lf.lfCharSet = DEFAULT_CHARSET;
+    lf.lfQuality = ANTIALIASED_QUALITY;
     FakeMenu_SetLogFont(hFakeMenu, &lf);
 
     INT id = FakeMenu_TrackPopup(hFakeMenu, hwnd, pt);

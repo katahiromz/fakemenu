@@ -9,13 +9,35 @@
 
 // Constants
 #define FAKEMENU_MARGIN 8
-#define FAKEMENU_CX_RIGHT_SPACE 24
+#define FAKEMENU_CX_SPACE 24
 #define FAKEMENU_CX_SEP 6
 #define FAKEMENU_CY_SEP 6
 #define FAKEMENU_REFRESH_TIMER 999
 #define FAKEMENU_REFRESH_INTERVAL 150
 #define FAKEMENU_ANIMATION_TIMER 888
 #define FAKEMENU_ANIMATION_DELAY 150
+
+static VOID
+MaskedDrawFrameControl(HDC hdc, LPRECT prc, UINT uType, UINT uState, COLORREF rgbFore)
+{
+    SIZE size = { prc->right - prc->left, prc->bottom - prc->top };
+    RECT rc = *prc;
+    OffsetRect(&rc, -prc->left, -prc->top);
+    HBITMAP hbmMask = ::CreateBitmap(size.cx, size.cy, 1, 1, NULL);
+    HDC hdcMem = ::CreateCompatibleDC(NULL);
+
+    HGDIOBJ hbmOld = ::SelectObject(hdcMem, hbmMask);
+    ::DrawFrameControl(hdcMem, &rc, uType, uState);
+
+    ::SelectObject(hdc, GetStockBrush(DC_BRUSH));
+    ::SetDCBrushColor(hdc, rgbFore);
+    ::MaskBlt(hdc, prc->left, prc->top, size.cx, size.cy, hdc, prc->left, prc->top,
+              hbmMask, 0, 0, MAKEROP4(SRCCOPY, PATCOPY));
+
+    ::SelectObject(hdcMem, hbmOld);
+    ::DeleteDC(hdcMem);
+    ::DeleteObject(hbmMask);
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 // FakeMenuItem and FakeMenu classes
@@ -30,6 +52,7 @@ public:
     UINT m_fType;       // Same as MENUITEMINFO.fType
     UINT m_fState;      // Same as MENUITEMINFO.fState
     LPWSTR m_pszText;   // malloc'ed
+    INT m_cxyItem;      // The item height
     FakeMenu* m_pSubMenu;
 
     // FakeMenuItem is a cyclic linked list
@@ -169,6 +192,7 @@ FakeMenuItem::FakeMenuItem(const MENUITEMINFO* pmii)
     m_fState = pmii->fState;
     m_pszText = NULL;
     m_pSubMenu = NULL;
+    m_cxyItem = 0;
     m_pNext = m_pPrev = NULL;
 
     if (!(pmii->fType & MFT_SEPARATOR))
@@ -216,15 +240,18 @@ BOOL FakeMenu::DoMeasureItem(INT iItem, FakeMenuItem* pItem, LPMEASUREITEMSTRUCT
 
         // Get text height
         TEXTMETRIC tm;
-        GetTextMetrics(hdc, &tm);
+        ::GetTextMetrics(hdc, &tm);
 
         // Get text extent
         SIZE size;
         ::GetTextExtentPoint32W(hdc, pItem->m_pszText, lstrlenW(pItem->m_pszText), &size);
 
+        INT cxCheck = ::GetSystemMetrics(SM_CXMENUCHECK);
+        if (cxCheck < (pItem->m_cxyItem * 2 / 3))
+            cxCheck = (pItem->m_cxyItem * 2 / 3);
+
         // Calculate width and height of item
-        INT itemWidth = GetSystemMetrics(SM_CXMENUCHECK) + size.cx +
-                        (2 * FAKEMENU_MARGIN) + FAKEMENU_CX_RIGHT_SPACE;
+        INT itemWidth = size.cx + cxCheck + (2 * FAKEMENU_MARGIN) + (2 * FAKEMENU_CX_SPACE);
         INT itemHeight = tm.tmHeight + 2 * FAKEMENU_MARGIN;
 
         // Adjust the height
@@ -256,36 +283,71 @@ BOOL FakeMenu::DoDrawItem(INT iItem, FakeMenuItem* pItem, LPDRAWITEMSTRUCT pDraw
 
     if (bSep) // Separator?
     {
-        bSelected = bGrayed = bChecked = FALSE;
+        ::FillRect(hdc, &rcItem, ::GetSysColorBrush(COLOR_MENU));
+
+        INT y = (rcItem.top + rcItem.bottom) / 2;
+        HGDIOBJ hPenOld = ::SelectObject(hdc, ::GetSysColorBrush(COLOR_3DLIGHT));
+        ::MoveToEx(hdc, rcItem.left + 2, y, NULL);
+        ::LineTo(hdc, rcItem.right - 2, y);
+        ::SelectObject(hdc, ::GetSysColorBrush(COLOR_GRAYTEXT));
+        ::MoveToEx(hdc, rcItem.left + 3, y + 1, NULL);
+        ::LineTo(hdc, rcItem.right - 1, y + 1);
+        SelectObject(hdc, hPenOld);
+
+        return TRUE;
     }
 
-    // Get the Part ID and state for window theme
-    INT partid = MENU_POPUPITEM, state;
-    if (bSep)
+    INT partid = MENU_POPUPITEM, state = MPI_NORMAL;
+    COLORREF rgbText = ::GetSysColor(COLOR_MENUTEXT);
+    if (m_hTheme)
     {
-        partid = MENU_POPUPSEPARATOR;
-        state = MPI_NORMAL;
-    }
-    else if (bSelected)
-    {
-        if (bGrayed)
-            state = MPI_DISABLEDHOT;
+        if (bSelected)
+        {
+            if (bGrayed)
+                state = MPI_DISABLEDHOT;
+            else
+                state = MPI_HOT;
+        }
         else
-            state = MPI_HOT;
+        {
+            if (bGrayed)
+                state = MPI_DISABLED;
+            else
+                state = MPI_NORMAL;
+        }
+
+        // Draw background using theme
+        ::DrawThemeBackground(m_hTheme, hdc, partid, state, &rcItem, NULL);
     }
     else
     {
-        if (bGrayed)
-            state = MPI_DISABLED;
+        if (bSelected)
+        {
+            if (bGrayed)
+            {
+                ::FillRect(hdc, &rcItem, ::GetSysColorBrush(COLOR_HIGHLIGHT));
+                rgbText = ::GetSysColor(COLOR_GRAYTEXT);
+            }
+            else
+            {
+                ::FillRect(hdc, &rcItem, ::GetSysColorBrush(COLOR_HIGHLIGHT));
+                rgbText = ::GetSysColor(COLOR_HIGHLIGHTTEXT);
+            }
+        }
         else
-            state = MPI_NORMAL;
+        {
+            if (bGrayed)
+            {
+                ::FillRect(hdc, &rcItem, ::GetSysColorBrush(COLOR_MENU));
+                rgbText = ::GetSysColor(COLOR_GRAYTEXT);
+            }
+            else
+            {
+                ::FillRect(hdc, &rcItem, ::GetSysColorBrush(COLOR_MENU));
+                rgbText = ::GetSysColor(COLOR_MENUTEXT);
+            }
+        }
     }
-
-    // Draw background using theme
-    ::DrawThemeBackground(m_hTheme, hdc, partid, state, &rcItem, NULL);
-
-    if (bSep)
-        return TRUE; // The separator is drawn. Done.
 
     // Trim the margin
     rcItem.left += m_marginsItem.cxLeftWidth;
@@ -295,31 +357,83 @@ BOOL FakeMenu::DoDrawItem(INT iItem, FakeMenuItem* pItem, LPDRAWITEMSTRUCT pDraw
 
     if (bChecked) // Draw checkmark or radio bullet?
     {
+        INT cxCheck = ::GetSystemMetrics(SM_CXMENUCHECK);
+        if (cxCheck < (pItem->m_cxyItem * 2 / 3))
+            cxCheck = (pItem->m_cxyItem * 2 / 3);
+
         RECT rcCheck = rcItem;
-        rcCheck.right = rcCheck.left + ::GetSystemMetrics(SM_CXMENUCHECK) + 2 * FAKEMENU_CX_SEP;
-        if (pItem->m_fType & MFT_RADIOCHECK)
-            ::DrawThemeBackground(m_hTheme, hdc, MENU_POPUPCHECK, MC_BULLETNORMAL, &rcCheck, &rcCheck);
+        rcCheck.right = rcCheck.left + cxCheck + 2 * FAKEMENU_CX_SEP;
+        if (m_hTheme)
+        {
+            if (pItem->m_fType & MFT_RADIOCHECK)
+            {
+                ::DrawThemeBackground(m_hTheme, hdc, MENU_POPUPCHECK, MC_BULLETNORMAL,
+                                      &rcCheck, &rcCheck);
+            }
+            else
+            {
+                ::DrawThemeBackground(m_hTheme, hdc, MENU_POPUPCHECK, MC_CHECKMARKNORMAL,
+                                      &rcCheck, &rcCheck);
+            }
+        }
         else
-            ::DrawThemeBackground(m_hTheme, hdc, MENU_POPUPCHECK, MC_CHECKMARKNORMAL, &rcCheck, &rcCheck);
+        {
+            if (pItem->m_fType & MFT_RADIOCHECK)
+                ::MaskedDrawFrameControl(hdc, &rcCheck, DFC_MENU, DFCS_MENUBULLET, rgbText);
+            else
+                ::MaskedDrawFrameControl(hdc, &rcCheck, DFC_MENU, DFCS_MENUCHECK, rgbText);
+        }
     }
 
     if (bSubMenu) // Draw sub-menu?
     {
         RECT rcArrow = rcItem;
-        rcArrow.left = rcArrow.right - FAKEMENU_CX_RIGHT_SPACE + 2 * FAKEMENU_CX_SEP;
-        state = (bGrayed ? MSM_DISABLED : MSM_NORMAL);
-        ::DrawThemeBackground(m_hTheme, hdc, MENU_POPUPSUBMENU, state, &rcArrow, &rcArrow);
+        rcArrow.left = rcArrow.right - FAKEMENU_CX_SPACE + 2 * FAKEMENU_CX_SEP;
+        if (m_hTheme)
+        {
+            ::DrawThemeBackground(m_hTheme, hdc, MENU_POPUPSUBMENU,
+                                  (bGrayed ? MSM_DISABLED : MSM_NORMAL), &rcArrow, &rcArrow);
+        }
+        else
+        {
+            if (bGrayed)
+            {
+                ::MaskedDrawFrameControl(hdc, &rcArrow, DFC_MENU, DFCS_MENUARROW | DFCS_INACTIVE,
+                                         rgbText);
+            }
+            else
+            {
+                ::MaskedDrawFrameControl(hdc, &rcArrow, DFC_MENU, DFCS_MENUARROW, rgbText);
+            }
+        }
     }
 
     if (pItem->m_pszText) // Draw text?
     {
+        INT cxCheck = ::GetSystemMetrics(SM_CXMENUCHECK);
+        if (cxCheck < (pItem->m_cxyItem * 2 / 3))
+            cxCheck = (pItem->m_cxyItem * 2 / 3);
+
         RECT rcText = rcItem;
-        rcText.left += ::GetSystemMetrics(SM_CXMENUCHECK) + FAKEMENU_CX_SEP;
+        rcText.left += cxCheck + FAKEMENU_CX_SEP;
         ::InflateRect(&rcText, -FAKEMENU_MARGIN, -FAKEMENU_MARGIN);
 
+        HGDIOBJ hFontOld = ::SelectObject(hdc, m_hFont);
+
         UINT dwFlags = DT_SINGLELINE | DT_LEFT | DT_VCENTER;
-        ::SelectObject(hdc, m_hFont);
-        ::DrawThemeText(m_hTheme, hdc, MENU_POPUPITEM, state, pItem->m_pszText, -1, dwFlags, 0, &rcText);
+        if (m_hTheme)
+        {
+            ::DrawThemeText(m_hTheme, hdc, MENU_POPUPITEM, state,
+                            pItem->m_pszText, -1, dwFlags, 0, &rcText);
+        }
+        else
+        {
+            ::SetTextColor(hdc, rgbText);
+            ::SetBkMode(hdc, TRANSPARENT);
+            ::DrawTextW(hdc, pItem->m_pszText, -1, &rcText, dwFlags);
+        }
+
+        ::SelectObject(hdc, hFontOld);
     }
 
     return TRUE;
@@ -671,9 +785,17 @@ void FakeMenu::UpdateVisuals(HWND hwnd)
         m_hTheme = NULL;
     }
 
-    m_hTheme = ::OpenThemeData(hwnd, VSCLASS_MENU);
-    assert(m_hTheme != NULL);
-    ::GetThemeMargins(m_hTheme, NULL, MENU_POPUPITEM, 0, TMT_CONTENTMARGINS, NULL, &m_marginsItem);
+    OSVERSIONINFOW osver = { sizeof(osver) };
+    GetVersionExW(&osver);
+    BOOL bThemeSupported =
+        (osver.dwMajorVersion > 6 || (osver.dwMajorVersion == 5 && osver.dwMinorVersion >= 1));
+
+    if (bThemeSupported)
+    {
+        m_hTheme = ::OpenThemeData(hwnd, L"MENU");
+        assert(m_hTheme != NULL);
+        ::GetThemeMargins(m_hTheme, NULL, MENU_POPUPITEM, 0, TMT_CONTENTMARGINS, NULL, &m_marginsItem);
+    }
 
     // Force to repaint
     ::InvalidateRect(hwnd, NULL, TRUE);
@@ -1291,6 +1413,7 @@ void FakeMenu::MeasureItems(SIZE& size)
         pItem->m_rcItem.right = size.cx;
         pItem->m_rcItem.top = size.cy;
         pItem->m_rcItem.bottom = size.cy + MeasureItem.itemHeight;
+        pItem->m_cxyItem = MeasureItem.itemHeight;
 
         // Update height of the contents
         size.cy += MeasureItem.itemHeight;
