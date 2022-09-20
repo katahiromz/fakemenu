@@ -1,4 +1,9 @@
-/* FakeMenu --- Menu-like control without window activation. */
+/*
+ * PROJECT:     ReactOS FakeMenu Library
+ * LICENSE:     LGPL-2.1-or-later (https://spdx.org/licenses/LGPL-2.1-or-later)
+ * PURPOSE:     Menu-like control without window activation
+ * COPYRIGHT:   Copyright 2022 Katayama Hirofumi MZ <katayama.hirofumi.mz@gmail.com>
+ */
 #include <windows.h>
 #include <windowsx.h>
 #include <vssym32.h>
