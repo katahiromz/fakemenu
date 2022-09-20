@@ -1538,24 +1538,6 @@ struct PRE_POPUP
     return TRUE;
 }
 
-static BOOL PtInTaskNotify(POINT pt)
-{
-    RECT rc;
-
-    HWND hwndTrayWnd = ::FindWindowW(L"Shell_TrayWnd", NULL);
-    HWND hNotifyWnd = ::FindWindowExW(hwndTrayWnd, NULL, L"TrayNotifyWnd", NULL);
-    ::GetWindowRect(hNotifyWnd, &rc);
-    if (::PtInRect(&rc, pt))
-        return TRUE;
-
-    HWND hwndOverflow = ::FindWindowW(L"NotifyIconOverflowWindow", NULL);
-    ::GetWindowRect(hwndOverflow, &rc);
-    if (::PtInRect(&rc, pt))
-        return TRUE;
-
-    return FALSE;
-}
-
 // Keep tracking or not?
 BOOL FakeMenu::IsAlive()
 {
@@ -1582,7 +1564,7 @@ BOOL FakeMenu::IsAlive()
         DWORD dwPos = ::GetMessagePos();
         POINT pt = { LOWORD(dwPos), HIWORD(dwPos) };
         HWND hwndPt = ::WindowFromPoint(pt);
-        if (!IsFamilyHWND(hwndPt) && !PtInTaskNotify(pt))
+        if (!IsFamilyHWND(hwndPt))
             return FALSE; // Not our family
     }
 
