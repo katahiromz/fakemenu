@@ -55,7 +55,7 @@ VOID OnNotifyMenu(HWND hwnd, POINT pt, INT nMenuID)
     lf.lfQuality = ANTIALIASED_QUALITY;
     FakeMenu_SetLogFont(hFakeMenu, &lf);
 
-    INT id = FakeMenu_TrackPopup(hFakeMenu, hwnd, pt);
+    INT id = FakeMenu_TrackPopup(hFakeMenu, pt);
     if (id != 0)
     {
         FakeMenu_GetItemText(hFakeMenu, id, s_szText, _countof(s_szText), FALSE);

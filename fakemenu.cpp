@@ -85,7 +85,6 @@ class FakeMenu
 {
 protected:
     HWND m_hwnd;                // The window handle
-    HWND m_hwndNotify;          // The window to be notified
     BOOL m_fKeyboardUsing;      // Using Keyboard?
     HTHEME m_hTheme;            // The window theme
     INT m_cItems;               // The # of items
@@ -148,7 +147,7 @@ public:
 
     INT HitTest(INT x, INT y);
 
-    INT TrackPopup(HWND hwndNotify, POINT pt, BOOL fKeyboard = FALSE, LPCRECT prcExclude = NULL);
+    INT TrackPopup(POINT pt, BOOL fKeyboard = FALSE, LPCRECT prcExclude = NULL);
     VOID HideTree(INT idResult);
     VOID HideTreeDelay(INT idResult, HWND hwndDelay);
     void DestroyTree(INT idResult);
@@ -456,7 +455,6 @@ VOID FakeMenu::InitStatus()
 
 FakeMenu::FakeMenu()
     : m_hwnd(NULL)
-    , m_hwndNotify(NULL)
     , m_fKeyboardUsing(FALSE)
     , m_hTheme(NULL)
     , m_cItems(0)
@@ -473,7 +471,6 @@ FakeMenu::FakeMenu()
 
 FakeMenu::FakeMenu(HMENU hMenu, FakeMenu* pParent/* = NULL*/)
     : m_hwnd(NULL)
-    , m_hwndNotify(NULL)
     , m_fKeyboardUsing(FALSE)
     , m_hTheme(NULL)
     , m_cItems(0)
@@ -1027,7 +1024,7 @@ void FakeMenu::OnButtonDown(HWND hwnd, INT x, INT y, BOOL fDoubleClick)
     MapWindowRect(m_hwnd, NULL, &rcItem);
 
     // Open the sub-menu
-    pSubMenu->TrackPopup(m_hwndNotify, pt, FALSE, &rcItem);
+    pSubMenu->TrackPopup(pt, FALSE, &rcItem);
 }
 
 void FakeMenu::OnLButtonDown(HWND hwnd, BOOL fDoubleClick, int x, int y, UINT keyFlags)
@@ -1129,7 +1126,7 @@ void FakeMenu::OnReturn()
         ::MapWindowRect(m_hwnd, NULL, &rcItem);
 
         // Open the sub-menu
-        pSubMenu->TrackPopup(m_hwndNotify, pt, TRUE, &rcItem);
+        pSubMenu->TrackPopup(pt, TRUE, &rcItem);
     }
     else
     {
@@ -1177,7 +1174,7 @@ void FakeMenu::OnRight()
     ::MapWindowRect(m_hwnd, NULL, &rcItem);
 
     // Open the sub-menu
-    pSubMenu->TrackPopup(m_hwndNotify, pt, TRUE, &rcItem);
+    pSubMenu->TrackPopup(pt, TRUE, &rcItem);
 }
 
 INT FakeMenu::FindItemByAccessChar(TCHAR ch)
@@ -1669,7 +1666,7 @@ void FakeMenu::DoMessageLoop(MSG& msg)
     }
 }
 
-INT FakeMenu::TrackPopup(HWND hwndNotify, POINT pt, BOOL fKeyboard, LPCRECT prcExclude)
+INT FakeMenu::TrackPopup(POINT pt, BOOL fKeyboard, LPCRECT prcExclude)
 {
     s_pActiveMenu = this;
 
@@ -1685,7 +1682,6 @@ INT FakeMenu::TrackPopup(HWND hwndNotify, POINT pt, BOOL fKeyboard, LPCRECT prcE
 
     InitStatus();
 
-    m_hwndNotify = hwndNotify;
     m_fKeyboardUsing = fKeyboard;
 
     DWORD style = WS_POPUP | WS_BORDER; // Popup with border
@@ -1749,10 +1745,6 @@ INT FakeMenu::TrackPopup(HWND hwndNotify, POINT pt, BOOL fKeyboard, LPCRECT prcE
         if (msg.message == WM_QUIT)
         {
             ::PostQuitMessage((INT)msg.wParam);
-        }
-        else if (m_idResult != 0 && m_hwndNotify)
-        {
-            ::PostMessageW(m_hwndNotify, WM_COMMAND, m_idResult, 0);
         }
     }
 
@@ -1888,9 +1880,9 @@ VOID APIENTRY FakeMenu_DeleteItems(HFAKEMENU hFakeMenu)
     return HandleToFakeMenu(hFakeMenu)->DeleteItems();
 }
 
-INT APIENTRY FakeMenu_TrackPopup(HFAKEMENU hFakeMenu, HWND hwndNotify, POINT pt)
+INT APIENTRY FakeMenu_TrackPopup(HFAKEMENU hFakeMenu, POINT pt)
 {
-    return HandleToFakeMenu(hFakeMenu)->TrackPopup(hwndNotify, pt);
+    return HandleToFakeMenu(hFakeMenu)->TrackPopup(pt);
 }
 
 } // extern "C"

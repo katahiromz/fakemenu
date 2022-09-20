@@ -30,7 +30,7 @@ VOID APIENTRY FakeMenu_ExitInstance(VOID);
 
 HFAKEMENU APIENTRY FakeMenu_Create(VOID);
 HFAKEMENU APIENTRY FakeMenu_FromHMENU(HMENU hMenu);
-INT APIENTRY FakeMenu_TrackPopup(HFAKEMENU hFakeMenu, HWND hwndNotify, POINT pt);
+INT APIENTRY FakeMenu_TrackPopup(HFAKEMENU hFakeMenu, POINT pt);
 VOID APIENTRY FakeMenu_Destroy(HFAKEMENU hFakeMenu);
 
 BOOL APIENTRY FakeMenu_AddString(HFAKEMENU hFakeMenu, UINT nID, LPCWSTR text, UINT fState);
