@@ -44,6 +44,6 @@ target_link_libraries(fakemenu_test comctl32 uxtheme)
 # libfakemenu.a
 add_library(fakemenu STATIC fakemenu.cpp)
 target_compile_definitions(fakemenu PRIVATE UNICODE _UNICODE)
-target_link_libraries(fakemenu comctl32 uxtheme)
+target_link_libraries(fakemenu uxtheme)
 
 ##############################################################################
