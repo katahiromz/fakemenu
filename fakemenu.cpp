@@ -94,6 +94,13 @@ protected:
     INT m_iParentItem;          // The index from the parent
     MARGINS m_marginsItem;      // The margins
 
+    // Hot-keys
+    INT m_nHotKeyLeft;
+    INT m_nHotKeyRight;
+    INT m_nHotKeyUp;
+    INT m_nHotKeyDown;
+    INT m_nHotKeyReturn;
+
     BOOL m_fDone;               // The task is done?
     BOOL m_fDestroying;         // Is it destroying the window?
     BOOL m_fDelayed;            // Delayed for animation?
@@ -114,6 +121,8 @@ protected:
     BOOL IsFamilyHWND(HWND hwnd);
     static BOOL CALLBACK EnumCloseProc(HWND hwnd, LPARAM lParam);
     static BOOL CALLBACK EnumFindStdMenuProc(HWND hwnd, LPARAM lParam);
+    VOID SetActiveMenu(FakeMenu *pActive);
+    VOID SetHotKeys(BOOL bSet);
 
 public:
     static BOOL DoRegisterClass(VOID);
@@ -158,6 +167,7 @@ public:
 protected:
     BOOL OnCreate(HWND hwnd, LPCREATESTRUCT lpCreateStruct);
     void OnShowWindow(HWND hwnd, BOOL fShow, UINT status);
+    void OnHotKey(HWND hwnd, int idHotKey, UINT fuModifiers, UINT vk);
     void OnPaint(HWND hwnd);
     void OnMouseMove(HWND hwnd, INT x, INT y, UINT keyFlags);
     void OnLButtonDown(HWND hwnd, BOOL fDoubleClick, int x, int y, UINT keyFlags);
@@ -466,6 +476,12 @@ FakeMenu::FakeMenu()
 {
     ZeroMemory(&m_marginsItem, sizeof(m_marginsItem));
 
+    m_nHotKeyLeft = 0;
+    m_nHotKeyRight = 0;
+    m_nHotKeyUp = 0;
+    m_nHotKeyDown = 0;
+    m_nHotKeyReturn = 0;
+
     InitStatus();
 }
 
@@ -481,6 +497,12 @@ FakeMenu::FakeMenu(HMENU hMenu, FakeMenu* pParent/* = NULL*/)
     , m_iParentItem(-1)
 {
     ZeroMemory(&m_marginsItem, sizeof(m_marginsItem));
+
+    m_nHotKeyLeft = 0;
+    m_nHotKeyRight = 0;
+    m_nHotKeyUp = 0;
+    m_nHotKeyDown = 0;
+    m_nHotKeyReturn = 0;
 
     InitStatus();
 
@@ -811,9 +833,89 @@ BOOL FakeMenu::OnCreate(HWND hwnd, LPCREATESTRUCT lpCreateStruct)
 void FakeMenu::OnShowWindow(HWND hwnd, BOOL fShow, UINT status)
 {
     if (fShow)
+    {
         ::SetTimer(hwnd, FAKEMENU_REFRESH_TIMER, FAKEMENU_REFRESH_INTERVAL, NULL);
+    }
     else
+    {
         ::KillTimer(hwnd, FAKEMENU_REFRESH_TIMER);
+        SetHotKeys(FALSE);
+    }
+}
+
+void FakeMenu::OnHotKey(HWND hwnd, int idHotKey, UINT fuModifiers, UINT vk)
+{
+    if (idHotKey == m_nHotKeyLeft)
+    {
+        SendMessageW(hwnd, WM_KEYDOWN, VK_LEFT, 0);
+        return;
+    }
+    if (idHotKey == m_nHotKeyRight)
+    {
+        SendMessageW(hwnd, WM_KEYDOWN, VK_RIGHT, 0);
+        return;
+    }
+    if (idHotKey == m_nHotKeyUp)
+    {
+        SendMessageW(hwnd, WM_KEYDOWN, VK_UP, 0);
+        return;
+    }
+    if (idHotKey == m_nHotKeyDown)
+    {
+        SendMessageW(hwnd, WM_KEYDOWN, VK_DOWN, 0);
+        return;
+    }
+    if (idHotKey == m_nHotKeyReturn)
+    {
+        SendMessageW(hwnd, WM_KEYDOWN, VK_RETURN, 0);
+        return;
+    }
+}
+
+VOID FakeMenu::SetActiveMenu(FakeMenu *pActive)
+{
+    if (s_pActiveMenu != pActive)
+    {
+        if (s_pActiveMenu)
+        {
+            s_pActiveMenu->SetHotKeys(FALSE);
+        }
+
+        s_pActiveMenu = pActive;
+
+        if (s_pActiveMenu)
+        {
+            s_pActiveMenu->SetHotKeys(TRUE);
+        }
+    }
+}
+
+VOID FakeMenu::SetHotKeys(BOOL bSet)
+{
+    ::UnregisterHotKey(m_hwnd, m_nHotKeyLeft);
+    ::UnregisterHotKey(m_hwnd, m_nHotKeyRight);
+    ::UnregisterHotKey(m_hwnd, m_nHotKeyUp);
+    ::UnregisterHotKey(m_hwnd, m_nHotKeyDown);
+    ::UnregisterHotKey(m_hwnd, m_nHotKeyReturn);
+    m_nHotKeyLeft = m_nHotKeyRight = m_nHotKeyUp = m_nHotKeyDown = m_nHotKeyReturn = 0;
+
+    if (bSet && ::IsWindow(m_hwnd))
+    {
+        m_nHotKeyLeft = ::GlobalAddAtomW(L"fakemenu left");
+        ::RegisterHotKey(m_hwnd, m_nHotKeyLeft, 0, VK_LEFT);
+
+        m_nHotKeyRight = ::GlobalAddAtomW(L"fakemenu right");
+        ::RegisterHotKey(m_hwnd, m_nHotKeyRight, 0, VK_RIGHT);
+
+        m_nHotKeyUp = ::GlobalAddAtomW(L"fakemenu up");
+        ::RegisterHotKey(m_hwnd, m_nHotKeyUp, 0, VK_UP);
+
+        m_nHotKeyDown = ::GlobalAddAtomW(L"fakemenu down");
+        ::RegisterHotKey(m_hwnd, m_nHotKeyDown, 0, VK_DOWN);
+
+        m_nHotKeyReturn = ::GlobalAddAtomW(L"fakemenu return");
+        ::RegisterHotKey(m_hwnd, m_nHotKeyReturn, 0, VK_RETURN);
+    }
 }
 
 void FakeMenu::OnTimer(HWND hwnd, UINT id)
@@ -823,7 +925,7 @@ void FakeMenu::OnTimer(HWND hwnd, UINT id)
         KillTimer(hwnd, FAKEMENU_ANIMATION_TIMER);
         ::ShowWindow(m_hwnd, SW_HIDE);
 
-        s_pActiveMenu = NULL;
+        SetActiveMenu(NULL);
 
         m_fDelayed = FALSE;
         m_fDone = TRUE;
@@ -1151,7 +1253,7 @@ void FakeMenu::OnLeft()
 {
     ::ShowWindow(m_hwnd, SW_HIDE);
     if (s_pActiveMenu)
-        s_pActiveMenu = s_pActiveMenu->m_pParent;
+        SetActiveMenu(s_pActiveMenu->m_pParent);
 }
 
 void FakeMenu::OnRight()
@@ -1272,6 +1374,7 @@ LRESULT CALLBACK FakeMenu::WindowProcDx(HWND hwnd, UINT uMsg, WPARAM wParam, LPA
         HANDLE_MSG(hwnd, WM_SYSCHAR, OnSysChar);
         HANDLE_MSG(hwnd, WM_PAINT, OnPaint);
         HANDLE_MSG(hwnd, WM_TIMER, OnTimer);
+        HANDLE_MSG(hwnd, WM_HOTKEY, OnHotKey);
 
         case WM_MOUSEACTIVATE:
             return MA_NOACTIVATE; // Don't activate the window!
@@ -1452,7 +1555,7 @@ VOID FakeMenu::HideTree(INT idResult)
     // Update s_pActiveMenu if necessary
     if (s_pActiveMenu == this)
     {
-        s_pActiveMenu = m_pParent;
+        SetActiveMenu(m_pParent);
     }
 }
 
@@ -1650,8 +1753,6 @@ void FakeMenu::DoMessageLoop(MSG& msg)
 
 INT FakeMenu::TrackPopup(POINT pt, BOOL fKeyboard, LPCRECT prcExclude)
 {
-    s_pActiveMenu = this;
-
     // Close the other menus if necessary
     PRE_POPUP PrePopup = { this, FALSE };
     ::EnumWindows(EnumCloseProc, (LPARAM)&PrePopup);
@@ -1698,6 +1799,8 @@ INT FakeMenu::TrackPopup(POINT pt, BOOL fKeyboard, LPCRECT prcExclude)
         ::SetWindowPos(m_hwnd, HWND_TOPMOST, pt.x, pt.y, size.cx, size.cy,
                        SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
     }
+
+    SetActiveMenu(this);
 
     if (m_pParent) // Sub-menu?
     {
