@@ -793,7 +793,6 @@ void FakeMenu::UpdateVisuals(HWND hwnd)
     if (bThemeSupported)
     {
         m_hTheme = ::OpenThemeData(hwnd, L"MENU");
-        assert(m_hTheme != NULL);
         ::GetThemeMargins(m_hTheme, NULL, MENU_POPUPITEM, 0, TMT_CONTENTMARGINS, NULL, &m_marginsItem);
     }
 

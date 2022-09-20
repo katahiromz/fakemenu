@@ -76,11 +76,11 @@ LRESULT OnNotifyIcon(HWND hwnd, WPARAM wParam, LPARAM lParam)
     GetCursorPos(&pt);
     switch (uMsg)
     {
-        case WM_LBUTTONDOWN:
+        case WM_LBUTTONUP:
             OnNotifyMenu(hwnd, pt, 2);
             break;
 
-        case WM_RBUTTONDOWN:
+        case WM_RBUTTONUP:
             OnNotifyMenu(hwnd, pt, 3);
             break;
     }
