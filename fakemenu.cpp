@@ -100,6 +100,7 @@ protected:
     INT m_nHotKeyUp;
     INT m_nHotKeyDown;
     INT m_nHotKeyReturn;
+    INT m_nHotKeyEscape;
 
     BOOL m_fDone;               // The task is done?
     BOOL m_fDestroying;         // Is it destroying the window?
@@ -481,6 +482,7 @@ FakeMenu::FakeMenu()
     m_nHotKeyUp = 0;
     m_nHotKeyDown = 0;
     m_nHotKeyReturn = 0;
+    m_nHotKeyEscape = 0;
 
     InitStatus();
 }
@@ -503,6 +505,7 @@ FakeMenu::FakeMenu(HMENU hMenu, FakeMenu* pParent/* = NULL*/)
     m_nHotKeyUp = 0;
     m_nHotKeyDown = 0;
     m_nHotKeyReturn = 0;
+    m_nHotKeyEscape = 0;
 
     InitStatus();
 
@@ -870,6 +873,11 @@ void FakeMenu::OnHotKey(HWND hwnd, int idHotKey, UINT fuModifiers, UINT vk)
         SendMessageW(hwnd, WM_KEYDOWN, VK_RETURN, 0);
         return;
     }
+    if (idHotKey == m_nHotKeyEscape)
+    {
+        SendMessageW(hwnd, WM_KEYDOWN, VK_ESCAPE, 0);
+        return;
+    }
 }
 
 VOID FakeMenu::SetActiveMenu(FakeMenu *pActive)
@@ -897,7 +905,9 @@ VOID FakeMenu::SetHotKeys(BOOL bSet)
     ::UnregisterHotKey(m_hwnd, m_nHotKeyUp);
     ::UnregisterHotKey(m_hwnd, m_nHotKeyDown);
     ::UnregisterHotKey(m_hwnd, m_nHotKeyReturn);
-    m_nHotKeyLeft = m_nHotKeyRight = m_nHotKeyUp = m_nHotKeyDown = m_nHotKeyReturn = 0;
+    ::UnregisterHotKey(m_hwnd, m_nHotKeyEscape);
+    m_nHotKeyLeft = m_nHotKeyRight = m_nHotKeyUp = m_nHotKeyDown = 0;
+    m_nHotKeyReturn = m_nHotKeyEscape = 0;
 
     if (bSet && ::IsWindow(m_hwnd))
     {
@@ -915,6 +925,9 @@ VOID FakeMenu::SetHotKeys(BOOL bSet)
 
         m_nHotKeyReturn = ::GlobalAddAtomW(L"fakemenu return");
         ::RegisterHotKey(m_hwnd, m_nHotKeyReturn, 0, VK_RETURN);
+
+        m_nHotKeyEscape = ::GlobalAddAtomW(L"fakemenu escape");
+        ::RegisterHotKey(m_hwnd, m_nHotKeyEscape, 0, VK_ESCAPE);
     }
 }
 
@@ -1244,9 +1257,11 @@ void FakeMenu::OnReturn()
 
 void FakeMenu::OnEscape()
 {
-    auto pRoot = GetRoot();
-    if (pRoot)
-        pRoot->HideTree(m_idResult);
+    ::ShowWindow(m_hwnd, SW_HIDE);
+    if (s_pActiveMenu)
+    {
+        SetActiveMenu(s_pActiveMenu->m_pParent);
+    }
 }
 
 void FakeMenu::OnLeft()
@@ -1670,10 +1685,6 @@ BOOL FakeMenu::IsAlive()
         if (!IsFamilyHWND(hwndPt))
             return FALSE; // Not our family
     }
-
-    // Keyboard action?
-    if (::GetKeyState(VK_ESCAPE) < 0)
-        return FALSE;
 
     if (pRoot->m_fDelayed || ::IsWindowVisible(pRoot->m_hwnd))
         return TRUE;
