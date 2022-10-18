@@ -9,7 +9,7 @@
 #include <vssym32.h>
 #include <uxtheme.h>
 #include <dwmapi.h>
-#include <cassert>
+#include <assert.h>
 #include "fakemenu.h"
 
 // Constants
@@ -21,6 +21,19 @@
 #define FAKEMENU_REFRESH_INTERVAL 150
 #define FAKEMENU_ANIMATION_TIMER 888
 #define FAKEMENU_ANIMATION_DELAY 150
+
+#ifdef __REACTOS__
+    void *operator new(size_t size)
+    {
+        if (size == 0)
+            size = 1;
+        return malloc(size);
+    }
+    void operator delete(void *ptr)
+    {
+        free(ptr);
+    }
+#endif
 
 static VOID
 MaskedDrawFrameControl(HDC hdc, LPRECT prc, UINT uType, UINT uState, COLORREF rgbFore)
@@ -86,7 +99,9 @@ class FakeMenu
 protected:
     HWND m_hwnd;                // The window handle
     BOOL m_fKeyboardUsing;      // Using Keyboard?
+#ifndef __REACTOS__
     HTHEME m_hTheme;            // The window theme
+#endif
     INT m_cItems;               // The # of items
     FakeMenuItem* m_pItems;     // The fake menu items
     FakeMenu* m_pParent;        // The parent
@@ -312,8 +327,9 @@ BOOL FakeMenu::DoDrawItem(INT iItem, FakeMenuItem* pItem, LPDRAWITEMSTRUCT pDraw
         return TRUE;
     }
 
-    INT partid = MENU_POPUPITEM, state = MPI_NORMAL;
     COLORREF rgbText = ::GetSysColor(COLOR_MENUTEXT);
+#ifndef __REACTOS__
+    INT partid = MENU_POPUPITEM, state = MPI_NORMAL;
     if (m_hTheme)
     {
         if (bSelected)
@@ -335,6 +351,7 @@ BOOL FakeMenu::DoDrawItem(INT iItem, FakeMenuItem* pItem, LPDRAWITEMSTRUCT pDraw
         ::DrawThemeBackground(m_hTheme, hdc, partid, state, &rcItem, NULL);
     }
     else
+#endif
     {
         if (bSelected)
         {
@@ -378,6 +395,7 @@ BOOL FakeMenu::DoDrawItem(INT iItem, FakeMenuItem* pItem, LPDRAWITEMSTRUCT pDraw
 
         RECT rcCheck = rcItem;
         rcCheck.right = rcCheck.left + cxCheck + 2 * FAKEMENU_CX_SEP;
+#ifndef __REACTOS__
         if (m_hTheme)
         {
             if (pItem->m_fType & MFT_RADIOCHECK)
@@ -392,6 +410,7 @@ BOOL FakeMenu::DoDrawItem(INT iItem, FakeMenuItem* pItem, LPDRAWITEMSTRUCT pDraw
             }
         }
         else
+#endif
         {
             if (pItem->m_fType & MFT_RADIOCHECK)
                 ::MaskedDrawFrameControl(hdc, &rcCheck, DFC_MENU, DFCS_MENUBULLET, rgbText);
@@ -404,12 +423,14 @@ BOOL FakeMenu::DoDrawItem(INT iItem, FakeMenuItem* pItem, LPDRAWITEMSTRUCT pDraw
     {
         RECT rcArrow = rcItem;
         rcArrow.left = rcArrow.right - FAKEMENU_CX_SPACE + 2 * FAKEMENU_CX_SEP;
+#ifndef __REACTOS__
         if (m_hTheme)
         {
             ::DrawThemeBackground(m_hTheme, hdc, MENU_POPUPSUBMENU,
                                   (bGrayed ? MSM_DISABLED : MSM_NORMAL), &rcArrow, &rcArrow);
         }
         else
+#endif
         {
             if (bGrayed)
             {
@@ -436,12 +457,14 @@ BOOL FakeMenu::DoDrawItem(INT iItem, FakeMenuItem* pItem, LPDRAWITEMSTRUCT pDraw
         HGDIOBJ hFontOld = ::SelectObject(hdc, m_hFont);
 
         UINT dwFlags = DT_SINGLELINE | DT_LEFT | DT_VCENTER;
+#ifndef __REACTOS__
         if (m_hTheme)
         {
             ::DrawThemeText(m_hTheme, hdc, MENU_POPUPITEM, state,
                             pItem->m_pszText, -1, dwFlags, 0, &rcText);
         }
         else
+#endif
         {
             ::SetTextColor(hdc, rgbText);
             ::SetBkMode(hdc, TRANSPARENT);
@@ -467,13 +490,15 @@ VOID FakeMenu::InitStatus()
 FakeMenu::FakeMenu()
     : m_hwnd(NULL)
     , m_fKeyboardUsing(FALSE)
+#ifndef __REACTOS__
     , m_hTheme(NULL)
+#endif
     , m_cItems(0)
     , m_pItems(NULL)
     , m_pParent(NULL)
     , m_hFont(GetStockFont(DEFAULT_GUI_FONT))
-    , m_iOpenSubMenu(0)
     , m_iParentItem(-1)
+    , m_iOpenSubMenu(0)
 {
     ZeroMemory(&m_marginsItem, sizeof(m_marginsItem));
 
@@ -490,13 +515,15 @@ FakeMenu::FakeMenu()
 FakeMenu::FakeMenu(HMENU hMenu, FakeMenu* pParent/* = NULL*/)
     : m_hwnd(NULL)
     , m_fKeyboardUsing(FALSE)
+#ifndef __REACTOS__
     , m_hTheme(NULL)
+#endif
     , m_cItems(0)
     , m_pItems(NULL)
     , m_pParent(pParent)
     , m_hFont(GetStockFont(DEFAULT_GUI_FONT))
-    , m_iOpenSubMenu(0)
     , m_iParentItem(-1)
+    , m_iOpenSubMenu(0)
 {
     ZeroMemory(&m_marginsItem, sizeof(m_marginsItem));
 
@@ -806,6 +833,7 @@ INT FakeMenu::AppendItem(const MENUITEMINFO* pmii)
 
 void FakeMenu::UpdateVisuals(HWND hwnd)
 {
+#ifndef __REACTOS__
     if (m_hTheme)
     {
         ::CloseThemeData(m_hTheme);
@@ -822,6 +850,7 @@ void FakeMenu::UpdateVisuals(HWND hwnd)
         m_hTheme = ::OpenThemeData(hwnd, L"MENU");
         ::GetThemeMargins(m_hTheme, NULL, MENU_POPUPITEM, 0, TMT_CONTENTMARGINS, NULL, &m_marginsItem);
     }
+#endif
 
     // Force to repaint
     ::InvalidateRect(hwnd, NULL, TRUE);
@@ -1008,11 +1037,13 @@ void FakeMenu::OnDestroy(HWND hwnd)
     if (m_pParent)
         m_pParent->m_iOpenSubMenu = -1;
 
+#ifndef __REACTOS__
     if (m_hTheme)
     {
         CloseThemeData(m_hTheme);
         m_hTheme = NULL;
     }
+#endif
 }
 
 void FakeMenu::OnPaint(HWND hwnd)
